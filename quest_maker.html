@@ -180,7 +180,7 @@
     // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
     // ここにデプロイしたGoogle Apps ScriptのWebアプリURLを設定します
     // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzLJPRm1DbOiceuv9gENsypj3hJWidY7w9qC8k2ItQW3LGZUCT_DWcvefhoQOfFLKLk/exec';
+    const API_URL = 'ここにGASのURLを貼り付けます';
 
     let data = { quests: [] };
     let currentBackupCode = localStorage.getItem('QuestMakerBackupCode') || null;
@@ -212,7 +212,6 @@
     async function syncToServer() {
         if (!currentBackupCode || !API_URL.startsWith('https')) return;
         
-        // ヘッダーUIを少し暗くして同期中を表現
         const header = document.querySelector('header');
         header.style.opacity = '0.7';
 
@@ -234,7 +233,7 @@
 
     function saveData() { 
         localStorage.setItem('QuestMakerData', JSON.stringify(data)); 
-        syncToServer(); // 更新があるたびに非同期でサーバーへ保存
+        syncToServer();
     }
 
     // --- メインロジック ---
@@ -462,7 +461,8 @@
         if (currentBackupCode) { alert('既にバックアップコードが登録されています。'); return; }
         
         if (confirm('新しいバックアップコードを作成し、現在のデータをサーバーに保存しますか？')) {
-            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            // 見間違いやすい 0, 1, 9, i, o, l, q を除外した文字列
+            const chars = 'abcdefghjkmnprstuvwxyz2345678';
             let code = '';
             for(let i=0; i<8; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
             
