@@ -21,13 +21,15 @@
         font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
         background-color: var(--bg-color);
         color: var(--text-color);
+        overflow: hidden; /* ページ全体のスクロールを無効化 */
     }
 
     #app {
         max-width: 600px;
         margin: 0 auto;
         background-color: var(--card-bg);
-        min-height: 100vh;
+        height: 100vh; /* 古いブラウザ用フォールバック */
+        height: 100dvh; /* スマホのアドレスバーを考慮した画面高さ */
         display: flex;
         flex-direction: column;
         position: relative;
@@ -41,8 +43,7 @@
         padding: 15px;
         background-color: var(--primary-color);
         color: white;
-        position: sticky;
-        top: 0;
+        flex-shrink: 0; /* スクロール領域に押されて縮むのを防ぐ */
         z-index: 10;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
@@ -71,7 +72,7 @@
     main {
         padding: 15px;
         flex-grow: 1;
-        overflow-y: auto;
+        overflow-y: auto; /* この領域のみスクロールさせる */
         padding-bottom: 90px;
         background-color: var(--bg-color);
     }
