@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>クエストメーカー</title>
 <link rel="apple-touch-icon" href="icon.jpg">
 <link rel="icon" href="icon.jpg">
@@ -25,7 +25,16 @@
         font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
         background-color: var(--bg-color);
         color: var(--text-color);
-        overflow: hidden; /* ページ全体のスクロールを無効化 */
+        overflow: hidden;
+        -webkit-user-select: none; /* テキスト選択の無効化 */
+        user-select: none;
+        touch-action: manipulation; /* ダブルタップ拡大の無効化 */
+    }
+
+    /* テキストボックスのみ選択を許可 */
+    input, textarea {
+        -webkit-user-select: text;
+        user-select: text;
     }
 
     #app {
@@ -33,7 +42,7 @@
         margin: 0 auto;
         background-color: var(--card-bg);
         height: 100vh;
-        height: 100dvh; /* スマホのアドレスバーを考慮した画面高さ */
+        height: 100dvh;
         display: flex;
         flex-direction: column;
         position: relative;
@@ -76,7 +85,7 @@
     main {
         padding: 15px;
         flex-grow: 1;
-        overflow-y: auto; /* この領域のみスクロールさせる */
+        overflow-y: auto;
         padding-bottom: 90px;
         background-color: var(--bg-color);
     }
@@ -112,7 +121,6 @@
     .edit-input { width: 100%; box-sizing: border-box; font-size: 16px; padding: 8px; font-family: inherit; border: 1px solid #ccc; border-radius: 4px; }
     textarea.edit-input { resize: none; overflow: hidden; min-height: 40px; }
 
-    /* 並び替えボタン用スタイル */
     .sort-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
     .sort-btn {
         background-color: #f8f9fa;
@@ -185,7 +193,10 @@
             <p>現在のバックアップコード</p>
             <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span id="currentCodeDisp" class="backup-code-display">未登録</span>
-                <button id="toggleCodeBtn" class="header-btn" style="color: #333; border-color: #ccc; display: none;">表示</button>
+                <div style="display: flex; gap: 8px;">
+                    <button id="copyCodeBtn" class="header-btn" style="color: #333; border-color: #ccc; display: none;">コピー</button>
+                    <button id="toggleCodeBtn" class="header-btn" style="color: #333; border-color: #ccc; display: none;">表示</button>
+                </div>
             </div>
         </div>
         <button id="createCodeBtn" class="modal-btns-full">バックアップコードの作成</button>
@@ -280,6 +291,7 @@
     const closeBackupBtn = document.getElementById('closeBackupBtn');
     const currentCodeDisp = document.getElementById('currentCodeDisp');
     const toggleCodeBtn = document.getElementById('toggleCodeBtn');
+    const copyCodeBtn = document.getElementById('copyCodeBtn'); // コピーボタンを取得
     const createCodeBtn = document.getElementById('createCodeBtn');
     const inputCodeBtn = document.getElementById('inputCodeBtn');
     const deleteCodeBtn = document.getElementById('deleteCodeBtn');
@@ -490,6 +502,7 @@
     function updateBackupUI() {
         if (currentBackupCode) {
             toggleCodeBtn.style.display = 'inline-block';
+            copyCodeBtn.style.display = 'inline-block';
             if (isCodeVisible) {
                 currentCodeDisp.textContent = currentBackupCode;
                 toggleCodeBtn.textContent = '隠す';
@@ -500,6 +513,7 @@
         } else {
             currentCodeDisp.textContent = '未登録';
             toggleCodeBtn.style.display = 'none';
+            copyCodeBtn.style.display = 'none';
             isCodeVisible = false;
         }
     }
@@ -507,6 +521,17 @@
     backupMenuBtn.onclick = () => { updateBackupUI(); backupModal.style.display = 'flex'; };
     closeBackupBtn.onclick = () => { backupModal.style.display = 'none'; };
     toggleCodeBtn.onclick = () => { isCodeVisible = !isCodeVisible; updateBackupUI(); };
+    
+    // コピーボタンの処理
+    copyCodeBtn.onclick = async () => {
+        if (!currentBackupCode) return;
+        try {
+            await navigator.clipboard.writeText(currentBackupCode);
+            alert('バックアップコードをコピーしました。');
+        } catch (err) {
+            alert('コピーに失敗しました。');
+        }
+    };
 
     function checkApiUrl() {
         if (!API_URL.startsWith('https')) {
@@ -521,7 +546,6 @@
         if (currentBackupCode) { alert('既にバックアップコードが登録されています。'); return; }
         
         if (confirm('新しいバックアップコードを作成し、現在のデータをサーバーに保存しますか？')) {
-            // 見間違いやすい 0, 1, 9, i, o, l, q を除外した文字列
             const chars = 'abcdefghjkmnprstuvwxyz2345678';
             let code = '';
             for(let i=0; i<8; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
