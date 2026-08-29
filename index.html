@@ -308,7 +308,7 @@
         textarea.style.height = textarea.scrollHeight + 'px';
     }
 
-    // --- 入力値の一時保存 ---
+    // --- 入力値の一時保存と変更検知 ---
     function applyEdits() {
         let list = [];
         if (currentView === 'quests') list = data.quests;
@@ -316,6 +316,8 @@
         else if (currentView === 'actions') list = data.quests.find(q => q.id === currentQuestId).missions.find(m => m.id === currentMissionId).actions;
 
         let hasError = false;
+        let isChanged = false; // 変更があったかどうかを判定するフラグ
+
         list.forEach(item => {
             const inputElement = document.getElementById(`edit-${item.id}`);
             if (inputElement) {
@@ -326,10 +328,18 @@
                 } else if (currentView !== 'actions' && newName.length > 30) {
                     alert('クエスト・ミッション名は30文字以内で入力してください');
                     hasError = true;
-                } else { item.name = newName; }
+                } else {
+                    // 以前の名前と異なる場合のみ上書きし、変更フラグを立てる
+                    if (item.name !== newName) {
+                        item.name = newName;
+                        isChanged = true;
+                    }
+                }
             }
         });
-        return !hasError;
+        
+        // 成功可否と、変更の有無を両方返す
+        return { success: !hasError, isChanged: isChanged };
     }
 
     // --- 描画処理 ---
@@ -407,11 +417,16 @@
         });
     }
 
-    // --- イベント ---
+    // --- 編集ボタンのイベント ---
     editBtn.onclick = () => {
         if (isEditMode) {
-            if (!applyEdits()) return; // バリデーションエラー時は完了させない
-            saveData();
+            const editResult = applyEdits();
+            if (!editResult.success) return; // バリデーションエラー時は完了させない
+            
+            // 変更があった場合のみセーブ（サーバー送信）を行う
+            if (editResult.isChanged) {
+                saveData();
+            }
         }
         isEditMode = !isEditMode;
         render();
@@ -438,8 +453,9 @@
     window.moveItem = (id, direction, event) => {
         event.stopPropagation();
         
-        // 移動前に現在入力中のテキストをすべて保存（入力が消えないようにする）
-        if (!applyEdits()) return;
+        // 移動前に現在入力中のテキストをすべて保存
+        const editResult = applyEdits();
+        if (!editResult.success) return;
 
         let targetList;
         if (currentView === 'quests') targetList = data.quests;
@@ -454,10 +470,10 @@
         // 配列の要素を入れ替え
         [targetList[index], targetList[newIndex]] = [targetList[newIndex], targetList[index]];
 
+        // 並び替え操作の場合は確実に配列が変化しているためセーブを行う
         saveData();
         render();
     };
-
     backBtn.onclick = () => {
         if (isEditMode) isEditMode = false;
         if (currentView === 'actions') currentView = 'missions';
