@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>クエストメーカー</title>
+<style>
+    :root {
+        --primary-color: #2c3e50;
+        --accent-color: #e74c3c;
+        --bg-color: #f5f6fa;
+        --card-bg: #ffffff;
+        --text-color: #333333;
+        --quest-border: #2c3e50;
+        --mission-accent: #3498db;
+        --action-accent: #2ecc71;
+    }
+
+    body {
+        margin: 0;
+        font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+    }
+
+    #app {
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: var(--card-bg);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background-color: var(--primary-color);
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+        font-size: 18px;
+        margin: 0;
+        text-align: center;
+        flex-grow: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .header-btn {
+        background: transparent;
+        border: 1px solid white;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    .header-btn:active { background: rgba(255,255,255,0.2); }
+
+    main {
+        padding: 15px;
+        flex-grow: 1;
+        overflow-y: auto;
+        padding-bottom: 90px;
+        background-color: var(--bg-color);
+    }
+
+    .card {
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 15px;
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        grid-template-rows: auto auto;
+        column-gap: 15px;
+        row-gap: 8px;
+        background-color: var(--card-bg);
+        transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .card.quests { border: 2px solid var(--quest-border); box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; }
+    .card.quests:active { transform: scale(0.98); }
+    .card.missions { border: 1px solid #e1e4e8; border-left: 6px solid var(--mission-accent); box-shadow: 0 2px 4px rgba(0,0,0,0.02); cursor: pointer; }
+    .card.missions:active { transform: scale(0.98); }
+    .card.actions { border: 1px solid #e1e4e8; border-left: 4px solid var(--action-accent); background-color: #fdfdfd; }
+    .card.edit-mode { cursor: default !important; transform: none !important; }
+
+    .card-tl { grid-column: 1; grid-row: 1; font-size: 24px; text-align: center; display: flex; align-items: flex-start; justify-content: center; }
+    .card.actions .card-tl { font-size: 18px; font-weight: bold; color: #7f8c8d; margin-top: 2px; }
+    .card-tr { grid-column: 2; grid-row: 1; font-size: 16px; font-weight: bold; line-height: 1.4; word-break: break-all; }
+    .card.actions .card-tr { font-weight: normal; color: #2c3e50; }
+    .card-bl { grid-column: 1; grid-row: 2; font-size: 16px; text-align: center; color: #555; }
+    .card-br { grid-column: 2; grid-row: 2; font-size: 12px; text-align: right; color: #999; align-self: flex-end; }
+
+    .delete-btn { color: var(--accent-color); font-size: 12px; font-weight: bold; cursor: pointer; padding: 4px; text-align: center; border: 1px solid var(--accent-color); border-radius: 4px; white-space: nowrap; background: #fff; }
+    .edit-input { width: 100%; box-sizing: border-box; font-size: 16px; padding: 8px; font-family: inherit; border: 1px solid #ccc; border-radius: 4px; }
+    textarea.edit-input { resize: none; overflow: hidden; min-height: 40px; }
+
+    .fab { position: absolute; bottom: 20px; border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 8px rgba(0,0,0,0.3); border: none; cursor: pointer; z-index: 10; transition: transform 0.2s; }
+    .fab:active { transform: scale(0.9); }
+    .add-btn { right: 20px; width: 60px; height: 60px; background-color: var(--accent-color); font-size: 32px; }
+    .backup-btn { left: 20px; right: auto; width: auto; height: 44px; border-radius: 22px; padding: 0 16px; font-size: 14px; background-color: #7f8c8d; font-weight: bold; }
+
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 20; }
+    .modal { background: var(--card-bg); padding: 20px; border-radius: 8px; width: 85%; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+    .modal h3 { margin-top: 0; margin-bottom: 15px; }
+    .modal input, .modal textarea { width: 100%; margin-bottom: 20px; padding: 10px; box-sizing: border-box; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+    .modal textarea { resize: vertical; min-height: 80px; }
+    .modal-btns { display: flex; justify-content: flex-end; gap: 10px; }
+    .modal-btns button { padding: 8px 16px; font-size: 16px; cursor: pointer; border: none; border-radius: 4px; }
+    #modalCancel, #closeBackupBtn { background-color: #ddd; color: #333; }
+    #modalSubmit { background-color: var(--primary-color); color: white; }
+
+    .backup-section { margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e1e4e8; }
+    .backup-section p { margin: 0 0 8px 0; font-size: 13px; color: #666; }
+    .backup-code-display { font-size: 22px; font-family: monospace; font-weight: bold; letter-spacing: 2px; color: var(--primary-color); }
+    .modal-btns-full { width: 100%; padding: 12px; font-size: 14px; font-weight: bold; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; text-align: center; margin-bottom: 10px; color: var(--text-color); }
+    .modal-btns-full:active { background: #f0f0f0; }
+    .modal-btns-full.danger { border-color: #e74c3c; color: #e74c3c; }
+    .modal-btns-full.danger:active { background: #fceceb; }
+    .loading { opacity: 0.5; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="app">
+    <header>
+        <button id="backBtn" class="header-btn" style="visibility: hidden;">戻る</button>
+        <h1 id="headerTitle">クエストメーカー</h1>
+        <button id="editBtn" class="header-btn">編集</button>
+    </header>
+    <main id="listContainer"></main>
+    <button id="backupMenuBtn" class="fab backup-btn">バックアップ</button>
+    <button id="addBtn" class="fab add-btn">＋</button>
+</div>
+
+<!-- アイテム追加用モーダル -->
+<div id="addModal" class="modal-overlay">
+    <div class="modal">
+        <h3 id="modalTitle">追加</h3>
+        <div id="modalInputContainer"></div>
+        <div class="modal-btns">
+            <button id="modalCancel">キャンセル</button>
+            <button id="modalSubmit">追加</button>
+        </div>
+    </div>
+</div>
+
+<!-- バックアップ管理用モーダル -->
+<div id="backupModal" class="modal-overlay">
+    <div class="modal">
+        <h3>バックアップ管理</h3>
+        <div class="backup-section">
+            <p>現在のバックアップコード</p>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span id="currentCodeDisp" class="backup-code-display">未登録</span>
+                <button id="toggleCodeBtn" class="header-btn" style="color: #333; border-color: #ccc; display: none;">表示</button>
+            </div>
+        </div>
+        <button id="createCodeBtn" class="modal-btns-full">バックアップコードの作成</button>
+        <button id="inputCodeBtn" class="modal-btns-full">バックアップコードの入力</button>
+        <button id="deleteCodeBtn" class="modal-btns-full danger">バックアップコードの削除</button>
+        <div class="modal-btns" style="margin-top: 15px;">
+            <button id="closeBackupBtn">閉じる</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+    // ここにデプロイしたGoogle Apps ScriptのWebアプリURLを設定します
+    // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzLJPRm1DbOiceuv9gENsypj3hJWidY7w9qC8k2ItQW3LGZUCT_DWcvefhoQOfFLKLk/exec';
+
+    let data = { quests: [] };
+    let currentBackupCode = localStorage.getItem('QuestMakerBackupCode') || null;
+    let isCodeVisible = false;
+
+    try {
+        const saved = localStorage.getItem('QuestMakerData');
+        if (saved) { data = JSON.parse(saved); }
+    } catch(e) { console.error("データの読み込みに失敗", e); }
+
+    // --- サーバー通信処理 ---
+    async function hashText(text) {
+        if (window.crypto && window.crypto.subtle) {
+            const encoder = new TextEncoder();
+            const dataBuffer = encoder.encode(text);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        } else {
+            let hash = 0;
+            for (let i = 0; i < text.length; i++) {
+                hash = ((hash << 5) - hash) + text.charCodeAt(i);
+                hash = hash & hash;
+            }
+            return Math.abs(hash).toString(16);
+        }
+    }
+
+    async function syncToServer() {
+        if (!currentBackupCode || !API_URL.startsWith('https')) return;
+        
+        // ヘッダーUIを少し暗くして同期中を表現
+        const header = document.querySelector('header');
+        header.style.opacity = '0.7';
+
+        const hashedCode = await hashText(currentBackupCode);
+        const protectedData = btoa(encodeURIComponent(JSON.stringify(data)));
+        
+        try {
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'save', code: hashedCode, payload: protectedData })
+            });
+        } catch(e) {
+            console.error("バックアップの同期に失敗しました", e);
+        } finally {
+            header.style.opacity = '1';
+        }
+    }
+
+    function saveData() { 
+        localStorage.setItem('QuestMakerData', JSON.stringify(data)); 
+        syncToServer(); // 更新があるたびに非同期でサーバーへ保存
+    }
+
+    // --- メインロジック ---
+    let currentView = 'quests';
+    let currentQuestId = null;
+    let currentMissionId = null;
+    let isEditMode = false;
+
+    const listContainer = document.getElementById('listContainer');
+    const headerTitle = document.getElementById('headerTitle');
+    const backBtn = document.getElementById('backBtn');
+    const editBtn = document.getElementById('editBtn');
+    
+    const addBtn = document.getElementById('addBtn');
+    const modal = document.getElementById('addModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalInputContainer = document.getElementById('modalInputContainer');
+    const modalCancel = document.getElementById('modalCancel');
+    const modalSubmit = document.getElementById('modalSubmit');
+
+    const backupMenuBtn = document.getElementById('backupMenuBtn');
+    const backupModal = document.getElementById('backupModal');
+    const closeBackupBtn = document.getElementById('closeBackupBtn');
+    const currentCodeDisp = document.getElementById('currentCodeDisp');
+    const toggleCodeBtn = document.getElementById('toggleCodeBtn');
+    const createCodeBtn = document.getElementById('createCodeBtn');
+    const inputCodeBtn = document.getElementById('inputCodeBtn');
+    const deleteCodeBtn = document.getElementById('deleteCodeBtn');
+
+    function generateId() { return Date.now().toString() + Math.floor(Math.random() * 1000).toString(); }
+    function formatDate(isoString) {
+        const d = new Date(isoString);
+        return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    }
+    function getQuestBadges(quest) { return quest.missions.reduce((sum, mission) => sum + mission.actions.length, 0); }
+    function getMissionBadges(mission) { return mission.actions.length; }
+    function autoResizeTextarea(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    function render() {
+        listContainer.innerHTML = '';
+        editBtn.textContent = isEditMode ? '完了' : '編集';
+        addBtn.style.display = isEditMode ? 'none' : 'flex';
+        backupMenuBtn.style.display = isEditMode ? 'none' : 'flex';
+
+        let list = [];
+        if (currentView === 'quests') {
+            headerTitle.textContent = 'クエスト一覧';
+            backBtn.style.visibility = 'hidden';
+            list = data.quests;
+        } else if (currentView === 'missions') {
+            const quest = data.quests.find(q => q.id === currentQuestId);
+            headerTitle.textContent = quest.name;
+            backBtn.style.visibility = 'visible';
+            list = quest.missions;
+        } else if (currentView === 'actions') {
+            const quest = data.quests.find(q => q.id === currentQuestId);
+            const mission = quest.missions.find(m => m.id === currentMissionId);
+            headerTitle.textContent = mission.name;
+            backBtn.style.visibility = 'visible';
+            list = mission.actions;
+        }
+
+        let displayList = [...list];
+        if (currentView === 'actions') { displayList.reverse(); }
+
+        displayList.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = `card ${currentView}${isEditMode ? ' edit-mode' : ''}`;
+            
+            card.onclick = (e) => {
+                if (isEditMode) return;
+                if (currentView === 'quests') {
+                    currentQuestId = item.id; currentView = 'missions'; render();
+                } else if (currentView === 'missions') {
+                    currentMissionId = item.id; currentView = 'actions'; render();
+                }
+            };
+
+            let tlContent = '', trContent = '', blContent = '', brContent = formatDate(item.date);
+
+            if (isEditMode) {
+                tlContent = `<div class="delete-btn" onclick="deleteItem('${item.id}', event)">削除</div>`;
+                if (currentView === 'actions') {
+                    trContent = `<textarea class="edit-input" id="edit-${item.id}" onclick="event.stopPropagation()" oninput="autoResizeTextarea(this)">${item.name}</textarea>`;
+                } else {
+                    trContent = `<input type="text" class="edit-input" id="edit-${item.id}" value="${item.name}" onclick="event.stopPropagation()">`;
+                }
+            } else {
+                tlContent = currentView === 'actions' ? (list.length - index) : '🏅';
+                trContent = item.name.replace(/\n/g, '<br>');
+                if (currentView === 'quests') blContent = getQuestBadges(item);
+                else if (currentView === 'missions') blContent = getMissionBadges(item);
+            }
+
+            card.innerHTML = `<div class="card-tl">${tlContent}</div><div class="card-tr">${trContent}</div><div class="card-bl">${blContent}</div><div class="card-br">${brContent}</div>`;
+            listContainer.appendChild(card);
+
+            if (isEditMode && currentView === 'actions') {
+                const ta = card.querySelector('textarea');
+                if (ta) { setTimeout(() => autoResizeTextarea(ta), 0); }
+            }
+        });
+    }
+
+    editBtn.onclick = () => {
+        if (isEditMode) {
+            let list = [];
+            if (currentView === 'quests') list = data.quests;
+            else if (currentView === 'missions') list = data.quests.find(q => q.id === currentQuestId).missions;
+            else if (currentView === 'actions') list = data.quests.find(q => q.id === currentQuestId).missions.find(m => m.id === currentMissionId).actions;
+
+            let hasError = false;
+            list.forEach(item => {
+                const inputElement = document.getElementById(`edit-${item.id}`);
+                if (inputElement) {
+                    const newName = inputElement.value.trim();
+                    if (newName.length === 0) {
+                        alert('空白のみの名前は設定できません');
+                        hasError = true;
+                    } else if (currentView !== 'actions' && newName.length > 30) {
+                        alert('クエスト・ミッション名は30文字以内で入力してください');
+                        hasError = true;
+                    } else { item.name = newName; }
+                }
+            });
+            if (hasError) return;
+            saveData();
+        }
+        isEditMode = !isEditMode;
+        render();
+    };
+
+    window.deleteItem = (id, event) => {
+        event.stopPropagation();
+        if (confirm('本当に削除しますか？')) {
+            if (currentView === 'quests') data.quests = data.quests.filter(q => q.id !== id);
+            else if (currentView === 'missions') {
+                const quest = data.quests.find(q => q.id === currentQuestId);
+                quest.missions = quest.missions.filter(m => m.id !== id);
+            } else if (currentView === 'actions') {
+                const quest = data.quests.find(q => q.id === currentQuestId);
+                const mission = quest.missions.find(m => m.id === currentMissionId);
+                mission.actions = mission.actions.filter(a => a.id !== id);
+            }
+            saveData();
+            render();
+        }
+    };
+
+    backBtn.onclick = () => {
+        if (isEditMode) isEditMode = false;
+        if (currentView === 'actions') currentView = 'missions';
+        else if (currentView === 'missions') currentView = 'quests';
+        render();
+    };
+
+    addBtn.onclick = () => {
+        modal.style.display = 'flex';
+        let titleLabel = currentView === 'quests' ? 'クエスト' : currentView === 'missions' ? 'ミッション' : 'アクション';
+        let placeholderLabel = titleLabel;
+        if (currentView !== 'actions') placeholderLabel += '名';
+
+        modalTitle.textContent = titleLabel + 'を追加';
+        if (currentView === 'actions') {
+            modalInputContainer.innerHTML = `<textarea id="newItemName" placeholder="${placeholderLabel}を入力"></textarea>`;
+        } else {
+            modalInputContainer.innerHTML = `<input type="text" id="newItemName" placeholder="${placeholderLabel}を入力">`;
+        }
+        setTimeout(() => document.getElementById('newItemName').focus(), 100);
+    };
+
+    modalCancel.onclick = () => { modal.style.display = 'none'; };
+
+    modalSubmit.onclick = () => {
+        const input = document.getElementById('newItemName');
+        const val = input.value.trim();
+        if (val.length === 0) { alert('文字を入力してください'); return; }
+        if (currentView !== 'actions' && val.length > 30) { alert('30文字以内で入力してください'); return; }
+
+        const newItem = { id: generateId(), name: val, date: new Date().toISOString() };
+        if (currentView === 'quests') { newItem.missions = []; data.quests.push(newItem); }
+        else if (currentView === 'missions') { newItem.actions = []; data.quests.find(q => q.id === currentQuestId).missions.push(newItem); }
+        else if (currentView === 'actions') { data.quests.find(q => q.id === currentQuestId).missions.find(m => m.id === currentMissionId).actions.push(newItem); }
+        
+        saveData();
+        modal.style.display = 'none';
+        render();
+    };
+
+    // --- バックアップ関連UI ---
+    function updateBackupUI() {
+        if (currentBackupCode) {
+            toggleCodeBtn.style.display = 'inline-block';
+            if (isCodeVisible) {
+                currentCodeDisp.textContent = currentBackupCode;
+                toggleCodeBtn.textContent = '隠す';
+            } else {
+                currentCodeDisp.textContent = '********';
+                toggleCodeBtn.textContent = '表示';
+            }
+        } else {
+            currentCodeDisp.textContent = '未登録';
+            toggleCodeBtn.style.display = 'none';
+            isCodeVisible = false;
+        }
+    }
+
+    backupMenuBtn.onclick = () => { updateBackupUI(); backupModal.style.display = 'flex'; };
+    closeBackupBtn.onclick = () => { backupModal.style.display = 'none'; };
+    toggleCodeBtn.onclick = () => { isCodeVisible = !isCodeVisible; updateBackupUI(); };
+
+    function checkApiUrl() {
+        if (!API_URL.startsWith('https')) {
+            alert('GASのWebアプリURLが設定されていません。コード先頭の API_URL を変更してください。');
+            return false;
+        }
+        return true;
+    }
+
+    createCodeBtn.onclick = async () => {
+        if (!checkApiUrl()) return;
+        if (currentBackupCode) { alert('既にバックアップコードが登録されています。'); return; }
+        
+        if (confirm('新しいバックアップコードを作成し、現在のデータをサーバーに保存しますか？')) {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let code = '';
+            for(let i=0; i<8; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+            
+            backupModal.classList.add('loading');
+            currentBackupCode = code;
+            localStorage.setItem('QuestMakerBackupCode', currentBackupCode);
+            await syncToServer();
+            backupModal.classList.remove('loading');
+            
+            updateBackupUI();
+            alert(`バックアップコード「${code}」を作成しました。\n以降、追加や編集の度にデータは自動保存されます。`);
+        }
+    };
+
+    inputCodeBtn.onclick = async () => {
+        if (!checkApiUrl()) return;
+        const input = prompt('バックアップコードを入力してください（半角英数小文字8桁）');
+        if (!input) return;
+        
+        backupModal.classList.add('loading');
+        const hashedCode = await hashText(input);
+        
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'load', code: hashedCode })
+            });
+            const result = await res.json();
+            
+            if (result.status === 'ok') {
+                if (confirm('サーバーからデータを引き継ぎます。現在のデータは上書きされますがよろしいですか？')) {
+                    try {
+                        const decryptedData = JSON.parse(decodeURIComponent(atob(result.payload)));
+                        data = decryptedData;
+                        currentBackupCode = input;
+                        localStorage.setItem('QuestMakerBackupCode', currentBackupCode);
+                        saveData();
+                        render();
+                        updateBackupUI();
+                        alert('データを引き継ぎました。');
+                    } catch(e) {
+                        alert('データの復元に失敗しました。データが破損している可能性があります。');
+                    }
+                }
+            } else {
+                alert('無効なバックアップコードです。データが存在しません。');
+            }
+        } catch(e) {
+             alert('通信エラーが発生しました。インターネット接続またはURLを確認してください。');
+        } finally {
+            backupModal.classList.remove('loading');
+        }
+    };
+
+    deleteCodeBtn.onclick = async () => {
+        if (!checkApiUrl()) return;
+        if (!currentBackupCode) { alert('バックアップコードが登録されていません。'); return; }
+        
+        if (confirm('サーバー上からバックアップデータを削除し、このブラウザのコード登録を解除しますか？')) {
+            backupModal.classList.add('loading');
+            try {
+                const hashedCode = await hashText(currentBackupCode);
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ action: 'delete', code: hashedCode })
+                });
+                
+                currentBackupCode = null;
+                localStorage.removeItem('QuestMakerBackupCode');
+                isCodeVisible = false;
+                updateBackupUI();
+                alert('バックアップデータをサーバーから削除しました。');
+            } catch(e) {
+                alert('通信エラーが発生しました。');
+            } finally {
+                backupModal.classList.remove('loading');
+            }
+        }
+    };
+
+    render();
+</script>
+</body>
+</html>
