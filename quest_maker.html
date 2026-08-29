@@ -28,7 +28,7 @@
         max-width: 600px;
         margin: 0 auto;
         background-color: var(--card-bg);
-        height: 100vh; /* 古いブラウザ用フォールバック */
+        height: 100vh;
         height: 100dvh; /* スマホのアドレスバーを考慮した画面高さ */
         display: flex;
         flex-direction: column;
@@ -43,7 +43,7 @@
         padding: 15px;
         background-color: var(--primary-color);
         color: white;
-        flex-shrink: 0; /* スクロール領域に押されて縮むのを防ぐ */
+        flex-shrink: 0;
         z-index: 10;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
@@ -104,8 +104,24 @@
     .card-br { grid-column: 2; grid-row: 2; font-size: 12px; text-align: right; color: #999; align-self: flex-end; }
 
     .delete-btn { color: var(--accent-color); font-size: 12px; font-weight: bold; cursor: pointer; padding: 4px; text-align: center; border: 1px solid var(--accent-color); border-radius: 4px; white-space: nowrap; background: #fff; }
+    
     .edit-input { width: 100%; box-sizing: border-box; font-size: 16px; padding: 8px; font-family: inherit; border: 1px solid #ccc; border-radius: 4px; }
     textarea.edit-input { resize: none; overflow: hidden; min-height: 40px; }
+
+    /* 並び替えボタン用スタイル */
+    .sort-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+    .sort-btn {
+        background-color: #f8f9fa;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        color: #333;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    .sort-btn:disabled { opacity: 0.3; cursor: default; }
+    .sort-btn:active:not(:disabled) { background-color: #e1e4e8; }
 
     .fab { position: absolute; bottom: 20px; border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 8px rgba(0,0,0,0.3); border: none; cursor: pointer; z-index: 10; transition: transform 0.2s; }
     .fab:active { transform: scale(0.9); }
@@ -276,6 +292,31 @@
         textarea.style.height = textarea.scrollHeight + 'px';
     }
 
+    // --- 入力値の一時保存 ---
+    function applyEdits() {
+        let list = [];
+        if (currentView === 'quests') list = data.quests;
+        else if (currentView === 'missions') list = data.quests.find(q => q.id === currentQuestId).missions;
+        else if (currentView === 'actions') list = data.quests.find(q => q.id === currentQuestId).missions.find(m => m.id === currentMissionId).actions;
+
+        let hasError = false;
+        list.forEach(item => {
+            const inputElement = document.getElementById(`edit-${item.id}`);
+            if (inputElement) {
+                const newName = inputElement.value.trim();
+                if (newName.length === 0) {
+                    alert('空白のみの名前は設定できません');
+                    hasError = true;
+                } else if (currentView !== 'actions' && newName.length > 30) {
+                    alert('クエスト・ミッション名は30文字以内で入力してください');
+                    hasError = true;
+                } else { item.name = newName; }
+            }
+        });
+        return !hasError;
+    }
+
+    // --- 描画処理 ---
     function render() {
         listContainer.innerHTML = '';
         editBtn.textContent = isEditMode ? '完了' : '編集';
@@ -322,8 +363,16 @@
                 tlContent = `<div class="delete-btn" onclick="deleteItem('${item.id}', event)">削除</div>`;
                 if (currentView === 'actions') {
                     trContent = `<textarea class="edit-input" id="edit-${item.id}" onclick="event.stopPropagation()" oninput="autoResizeTextarea(this)">${item.name}</textarea>`;
+                    brContent = ''; // アクション編集時はスッキリさせるために日付を消す
                 } else {
                     trContent = `<input type="text" class="edit-input" id="edit-${item.id}" value="${item.name}" onclick="event.stopPropagation()">`;
+                    // クエスト・ミッションの場合のみ並び替えボタンを追加
+                    brContent = `
+                        <div class="sort-btns">
+                            <button class="sort-btn" onclick="moveItem('${item.id}', -1, event)" ${index === 0 ? 'disabled' : ''}>▲ 上へ</button>
+                            <button class="sort-btn" onclick="moveItem('${item.id}', 1, event)" ${index === displayList.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
+                        </div>
+                    `;
                 }
             } else {
                 tlContent = currentView === 'actions' ? (list.length - index) : '🏅';
@@ -342,28 +391,10 @@
         });
     }
 
+    // --- イベント ---
     editBtn.onclick = () => {
         if (isEditMode) {
-            let list = [];
-            if (currentView === 'quests') list = data.quests;
-            else if (currentView === 'missions') list = data.quests.find(q => q.id === currentQuestId).missions;
-            else if (currentView === 'actions') list = data.quests.find(q => q.id === currentQuestId).missions.find(m => m.id === currentMissionId).actions;
-
-            let hasError = false;
-            list.forEach(item => {
-                const inputElement = document.getElementById(`edit-${item.id}`);
-                if (inputElement) {
-                    const newName = inputElement.value.trim();
-                    if (newName.length === 0) {
-                        alert('空白のみの名前は設定できません');
-                        hasError = true;
-                    } else if (currentView !== 'actions' && newName.length > 30) {
-                        alert('クエスト・ミッション名は30文字以内で入力してください');
-                        hasError = true;
-                    } else { item.name = newName; }
-                }
-            });
-            if (hasError) return;
+            if (!applyEdits()) return; // バリデーションエラー時は完了させない
             saveData();
         }
         isEditMode = !isEditMode;
@@ -385,6 +416,30 @@
             saveData();
             render();
         }
+    };
+    
+    // --- 並び替え処理 ---
+    window.moveItem = (id, direction, event) => {
+        event.stopPropagation();
+        
+        // 移動前に現在入力中のテキストをすべて保存（入力が消えないようにする）
+        if (!applyEdits()) return;
+
+        let targetList;
+        if (currentView === 'quests') targetList = data.quests;
+        else if (currentView === 'missions') targetList = data.quests.find(q => q.id === currentQuestId).missions;
+        else return;
+
+        const index = targetList.findIndex(item => item.id === id);
+        const newIndex = index + direction;
+        
+        if (index < 0 || newIndex < 0 || newIndex >= targetList.length) return;
+
+        // 配列の要素を入れ替え
+        [targetList[index], targetList[newIndex]] = [targetList[newIndex], targetList[index]];
+
+        saveData();
+        render();
     };
 
     backBtn.onclick = () => {
